@@ -401,9 +401,20 @@ func convertMessage(m *nats.Msg) (*service.Message, service.AckFunc, error) {
 	}
 
 	return msg, func(ctx context.Context, res error) error {
-		if res == nil {
+		if res != nil {
+			nak_delay, nak_delay_set := msg.MetaGet("nak_delay")
+			if nak_delay_set {
+				nakDelay, err := time.ParseDuration(nak_delay)
+				if err != nil {
+					return fmt.Errorf("failed to parse nak_delay duration: %v", err)
+				}
+
+				return m.NakWithDelay(nakDelay)
+			} else {
+				return m.Nak()
+			}
+		} else {
 			return m.Ack()
 		}
-		return m.Nak()
 	}, nil
 }
